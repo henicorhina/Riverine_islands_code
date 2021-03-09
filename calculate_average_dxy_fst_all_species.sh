@@ -1,0 +1,12 @@
+#!/bin/sh
+source activate phyluce
+# done: conbic conbic_full conmar cranioleuca dendroplex elaenia furnarius furnarius_full knipolegus_full leucippus mazaria myrmoborus myrmochanes myrmotherula_assimilis myrmotherula_klagesi ochthornis serpophaga stigmatura_full
+# not done yet:   Campephilus_rubricollis Cantorchilus_leucotis Celeus_grammicus  Formicarius_analis Formicarius_colma Megascops_choliba Megascops_watsonii  Monasa_nigrifrons Myrmeciza_fortis Pheugopedius_coraya Piaya_cayana Pipra_erythrocephala Saltator_coerulescens Saltator_grossus Schiffornis_turdina Tachyphonus_luctuosus Trogon_collaris Trogon_rufus Xiphorhynchus_obsoletus
+
+for species in thamnophilus Campephilus_melanoleucos Celeus_flavus Crypturellus_undulatus Crypturellus_variegatus Glaucidium_brasilianum Glaucidium_hardyi Hylophylax_naevia Hylophylax_punctulata Monasa_morphoeus Myrmeciza_hyperythra Myrmoborus_leucophrys Myrmoborus_myotherinus Phaethornis_bourcieri Phaethornis_hispidus Piaya_melanogaster Pipra_filicauda Schiffornis_major Synallaxis_gujanensis Synallaxis_rutilans Tachyphonus_cristatus Xiphorhynchus_elegans 
+do
+	echo ${species};
+	python /Volumes/Brumfield_Lab_Drive/data/1_code/1_analysis/dxy_fst/calculate_average_dxy_fst.py /Volumes/Brumfield_Lab_Drive/data/1_analysis/dxy_fst_final/results/${species}/ ${species}_results.txt	
+	echo "\n"
+done
+source deactivate
