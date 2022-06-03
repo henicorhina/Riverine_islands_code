@@ -24,5 +24,18 @@ Scripts:
 
 `calculate_average_dxy_fst_all_species.sh`: run the `calculate_average_dxy_fst.py` script for all species
 
+`gene_trees-all_species.sh`: estimate UCE gene trees in RAxML
 
+`calculate_mtdna_tree_depth.R` and `calculate_uce_gene_tree_depth.R`: calculate average branch lengths of mitochondrial and UCE gene trees
 
+`dendropy_popgenstats.py`: calculate population genetic metrics in DendroPy
+
+`distruct_structure_all_species.sh`: run Distruct for visualizing STRUCTURE results
+
+`genepop_ibd.R`: calculate isolation-by-distance slopes with the R package genepop and process results: `genepop_ibd_process_results.R`
+
+`heterozygosity_outliers.R`: detect extreme heterozygosity outliers for removal from dataset
+
+`pgls_caper.R`: run PGLS analysis in R package caper (old)
+
+`phylANOVA.v4.R`: format input data and run phylogenetic ANOVA and PGLS analyses. Most analyses and plotting are included in this file.
