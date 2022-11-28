@@ -11,8 +11,9 @@ library(forcats)
 library(caper)
 library(qpcR)
 library(geiger)
+library(here)
 
-setwd("/Volumes/Brumfield_Lab_Drive/River_islands")
+# setwd("/Volumes/Brumfield_Lab_Drive/River_islands")
 
 theta <- read.csv("3_results/dendropy/theta.csv")
 df <- read.csv("3_results/results_for_pgls_take4.formatted.csv")
@@ -30,6 +31,7 @@ PopGen <- read.csv("3_results/PopGenome_Fst.results.v1.csv")
 genepop <- read.csv("/Volumes/Brumfield_Lab_Drive/River_islands/3_results/genepop_ibd.results.v1.csv")
 
 #------------------------------------------------------------------------
+# functions
 
 phy_anova_island.char <- function(df.t, char) {
   # df.t = dataframe
@@ -288,22 +290,26 @@ df <- left_join(df, genepop, by = "species")
 write.csv(df, file = "3_results/pgls.anova.database.formatted.csv", row.names = FALSE)
 # df <- read.csv("3_results/pgls.anova.database.formatted.csv")
 
-df["Trophic.Level"][df["Trophic.Level"] == "Carnivore"] <- 1
-df["Trophic.Level"][df["Trophic.Level"] == "Herbivore"] <- 2
-df["Trophic.Level"][df["Trophic.Level"] == "Omnivore"] <- 3
+# more carnivorous
+df["Trophic.Level"][df["Trophic.Level"] == "Herbivore"] <- 1
+df["Trophic.Level"][df["Trophic.Level"] == "Omnivore"] <- 2
+df["Trophic.Level"][df["Trophic.Level"] == "Carnivore"] <- 3
 df$Trophic.Level <- as.integer(df$Trophic.Level)
 
-df["Trophic.Niche"][df["Trophic.Niche"] == "Invertivore"] <- 1
+# more carnivorous (invertivorous?)
+df["Trophic.Niche"][df["Trophic.Niche"] == "Frugivore"] <- 1
 df["Trophic.Niche"][df["Trophic.Niche"] == "Nectarivore"] <- 2
 df["Trophic.Niche"][df["Trophic.Niche"] == "Omnivore"] <- 3
-df["Trophic.Niche"][df["Trophic.Niche"] == "Frugivore"] <- 4
+df["Trophic.Niche"][df["Trophic.Niche"] == "Invertivore"] <- 4
 df$Trophic.Niche <- as.integer(df$Trophic.Niche)
 
+# more terrestrial
 df["Primary.Lifestyle"][df["Primary.Lifestyle"] == "Aerial"] <- 1
 df["Primary.Lifestyle"][df["Primary.Lifestyle"] == "Terrestrial"] <- 2
 df["Primary.Lifestyle"][df["Primary.Lifestyle"] == "Insessorial"] <- 3
 df$Primary.Lifestyle <- as.integer(df$Primary.Lifestyle)
 
+# more riverine? I don't think we used this anyways
 df["Habitat"][df["Habitat"] == "Forest"] <- 1
 df["Habitat"][df["Habitat"] == "Woodland"] <- 2
 df["Habitat"][df["Habitat"] == "Shrubland"] <- 3
