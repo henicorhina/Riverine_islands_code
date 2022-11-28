@@ -13,22 +13,30 @@ library(qpcR)
 library(geiger)
 library(here)
 
-# setwd("/Volumes/Brumfield_Lab_Drive/River_islands")
 
-theta <- read.csv("3_results/dendropy/theta.csv")
-df <- read.csv("3_results/results_for_pgls_take4.formatted.csv")
-new.fst <- read.csv("3_results/PopGenome_Fst.results.v1.DAPCassignments.csv")
-island.Tree <- read.tree(file = "all_species_tree/incomplete_taxon_set/mafft-raxml-nexus-edge-trimmed-95percent/RAxML_bipartitions.all_species_95percent_final.newick.phy")
+# old file paths, when using external drive
+# setwd("/Volumes/Brumfield_Lab_Drive/River_islands")
+# theta <- read.csv("3_results/dendropy/theta.csv")
+# island.Tree <- read.tree(file = "all_species_tree/incomplete_taxon_set/mafft-raxml-nexus-edge-trimmed-95percent/RAxML_bipartitions.all_species_95percent_final.newick.phy")
 # island.Tree <- read.tree(file = "/Volumes/Brumfield_Lab_Drive/River_islands/all_species_tree/incomplete_taxon_set/mafft-raxml-nexus-edge-trimmed-95percent/RAxML_bipartitions.all_species_95percent_final.phy")
 # island.Tree <- read.tree(file = "/Volumes/Brumfield_Lab_Drive/River_islands/all_species_tree/incomplete_taxon_set/mafft-raxml-nexus-edge-trimmed-95percent/RAxML_bipartitions.all_species_95percent_final.tre")
-island.Tree <- drop.tip(island.Tree, "Thamnophilus_cryptoleucus2")
 # avonet <- read.csv("/Volumes/Backup_Plus/AVONET/Supplementary_dataset_1_raw_data.csv") # doesn't include trophic data / diet
 # avonet <- read.csv("/Volumes/Backup_Plus/AVONET/Supplementary_dataset_1.csv") # preliminary df
-avonet <- read.csv("/Users/oscar/Documents/Projects/AVONET/ELEData/TraitData/AVONET_Raw_Data.csv") # final df, raw data
-avonet.bl <- read.csv("/Users/oscar/Documents/Projects/AVONET/ELEData/TraitData/AVONET1_BirdLife.csv") # final df, birdlife
-all_species_key <- read.csv("All_species_key.csv")
-PopGen <- read.csv("3_results/PopGenome_Fst.results.v1.csv")
-genepop <- read.csv("/Volumes/Brumfield_Lab_Drive/River_islands/3_results/genepop_ibd.results.v1.csv")
+# avonet <- read.csv("/Users/oscar/Documents/Projects/AVONET/ELEData/TraitData/AVONET_Raw_Data.csv") # final df, raw data
+# avonet.bl <- read.csv("/Users/oscar/Documents/Projects/AVONET/ELEData/TraitData/AVONET1_BirdLife.csv") # final df, birdlife
+# genepop <- read.csv("/Volumes/Brumfield_Lab_Drive/River_islands/3_results/genepop_ibd.results.v1.csv")
+
+# relative file paths, with here()
+theta <- read.csv("2_data/theta.csv")
+df <- read.csv("2_data/results_for_pgls_take4.formatted.csv")
+island.Tree <- read.tree(file = "2_data/RAxML_bipartitions.all_species_95percent_final.newick.phy")
+island.Tree <- drop.tip(island.Tree, "Thamnophilus_cryptoleucus2") # duplicate tip
+avonet <- read.csv("2_data/AVONET_Raw_Data.csv") # final df, raw data
+avonet.bl <- read.csv("2_data/AVONET1_BirdLife.csv") # final df, birdlife
+all_species_key <- read.csv("2_data/All_species_key.csv")
+PopGen <- read.csv("2_data/PopGenome_Fst.results.v1.csv")
+new.fst <- read.csv("2_data/PopGenome_Fst.results.v1.DAPCassignments.csv")
+genepop <- read.csv("2_data/genepop_ibd.results.v1.csv")
 
 #------------------------------------------------------------------------
 # functions
@@ -332,6 +340,7 @@ df <- left_join(df, new.fst, by = "species")
 
 # final trait dataset for upload
 write.csv(df, file = "3_results/trait.database.formatted.final.csv", row.names = FALSE)
+# df <- read.csv("3_results/trait.database.formatted.final.csv")
 
 #------------------------------------------------------------------------
 # traits <- colnames(df)[c(13, 16:30, 32, 36:37)] # old version
@@ -448,15 +457,79 @@ for (x in 1:length(traits)) {
 }
 
 
-fname <- paste0("3_results/phylANOVA.results.v6.Ochthornis.Dendroplex.csv")
+fname <- paste0("3_results/phylANOVA.results.v6.Ochthornis.Dendroplex.reassigned.csv")
 write.csv(df.anova, file = fname, row.names = FALSE)
 df.anova <- read.csv(fname)
+
+#------------------------------------------------------------------------
+# run with Ochthornis and Dendroplex removed
+
+#rescale for effect sizes
+df.temp <- df[,traits]
+rownames(df.temp) <- df$species
+df.temp <- as.matrix(df.temp)
+df.temp <- scale(df.temp)
+df.rescaled <- as.data.frame(df.temp)
+df.rescaled$species <- df$species
+df.rescaled$habitat <- df$habitat
+
+df.temp <- df.rescaled %>% 
+  dplyr::filter(species != "Ochthornis_littoralis" & species != "Dendroplex_kienerii") 
+
+df.anova <- data.frame(trait=character(),
+                       F=double(), 
+                       P=double(), 
+                       island.floodplain.T=double(), 
+                       island.floodplain.P=double(), 
+                       island.upland.T=double(), 
+                       island.upland.P=double(), 
+                       floodplain.upland.T=double(), 
+                       floodplain.upland.P=double(), 
+                       stringsAsFactors=FALSE) 
+
+for (x in 1:length(traits)) {
+  i <- traits[x]
+  
+  # call trait function for each trait
+  print(paste0("working on trait: ", i, collapse = ", "))
+  cat("\n")
+  colnum <- which(colnames(df.temp) == i)
+  
+  res <- phy_anova_island.char(df.temp, char=colnum)
+  anova.res <- as.data.frame(round(as.numeric(res$F), digits = 3))
+  colnames(anova.res) <- "F"
+  anova.res$P <- round(as.numeric(res$p), digits = 4)
+  anova.res$island.floodplain.T <- round(as.numeric(res$island.floodplain.T), digits = 3) 
+  anova.res$island.floodplain.P <- round(as.numeric(res$island.floodplain.P), digits = 3) 
+  anova.res$island.upland.T <- round(as.numeric(res$island.upland.T), digits = 3) 
+  anova.res$island.upland.P <- round(as.numeric(res$island.upland.P), digits = 3) 
+  anova.res$floodplain.upland.T <- round(as.numeric(res$floodplain.upland.T), digits = 3) 
+  anova.res$floodplain.upland.P <- round(as.numeric(res$floodplain.upland.P), digits = 3) 
+  anova.res$trait <- i
+  anova.res <- anova.res[,c(9,1:8)]
+  df.anova <- bind_rows(df.anova, anova.res)
+  
+}
+
+
+fname <- paste0("3_results/phylANOVA.results.v6.Ochthornis.Dendroplex.removed.csv")
+write.csv(df.anova, file = fname, row.names = FALSE)
+df.anova <- read.csv(fname)
+
 
 
 #------------------------------------------------------------------------
 # run anova with island split into early and late successional stages
 # note that a different function is necessary here: phy_anova_island.islandsplit
 
+#rescale for effect sizes
+df.temp <- df[,traits]
+rownames(df.temp) <- df$species
+df.temp <- as.matrix(df.temp)
+df.temp <- scale(df.temp)
+df.rescaled <- as.data.frame(df.temp)
+df.rescaled$species <- df$species
+df.rescaled$habitat <- df$habitat
 
 df.temp <- df.rescaled
 df.temp["habitat"][df.temp["habitat"] == "island"] <- "island.early"
@@ -599,6 +672,7 @@ res$anova
 
 
 #------------------------------------------------------------------------
+#plotting
 
 Av_groups <- df %>%
   mutate(habitat = fct_relevel(habitat, "island", "floodplain", "upland")) %>%
@@ -854,7 +928,7 @@ Beak.Length_Nares <- df %>%
 
 Trophic.Niche <- df %>%
   mutate(habitat = fct_relevel(habitat, "island", "floodplain", "upland")) %>%
-  ggplot( aes(x = habitat, y = scale(Trophic.Niche))) + 
+  ggplot( aes(x = habitat, y = Trophic.Niche)) + 
   geom_boxplot(outlier.shape = NA) + 
   geom_jitter(position=position_jitter(0.2)) +
   theme_classic() +
@@ -886,7 +960,9 @@ hwi.30 <- df.passerine %>%
 
 
 #------------------------------------------------------------------------
+# plot as grid
 
+# take one, not working
 # ggarrange(Fst, Dxy, nuc_div, Taj_D,
 #           log.theta, pairwise_diffs, seg_sites, seg_sites_per_bp,
 #           loci, total_bp, av_contig_length, Av_groups, Av_gene_tree,
@@ -902,6 +978,7 @@ hwi.30 <- df.passerine %>%
 #              SNPs, SNPs_per_locus, SNPs_per_bp,
 #              ncol = 4)   
 
+# take 2, working
 gt <- arrangeGrob(seg_sites_per_bp, SNPs_per_locus, Av_mtdna_tree, Fst, 
                   SNPs, Av_gene_tree, IBD, Dxy, 
                   SNPs_per_bp, nuc_div, seg_sites, theta, 
@@ -923,7 +1000,7 @@ as_ggplot(gt) +
                         0.5, 0.5, 0.5, 0.5,
                         0.25, 0.25, 0.25, 0.25))
 
-ggsave("3_results/1_plots/multipage_boxplot.v6.pdf", 
+ggsave("4_plots/multipage_boxplot.v6.pdf", 
        width = 12, height = 12, units = "in")
 
 
@@ -934,7 +1011,7 @@ as_ggplot(gt.sub) +
                   size = 15,
                   x = c(0.001, 0.5), 
                   y = c(1,     1))
-ggsave("3_results/1_plots/multipage_boxplot.v6.subtending.pdf", 
+ggsave("4_plots/multipage_boxplot.v6.subtending.pdf", 
        width = 6, height = 3, units = "in")
 
 # traits
@@ -949,7 +1026,7 @@ as_ggplot(gt.trait) +
                         0.001, 0.33, 0.65), 
                   y = c(1,     1,    1,
                         0.5,   0.5,  0.5))
-ggsave("3_results/1_plots/multipage_boxplot.v6.traits.png", 
+ggsave("4_plots/multipage_boxplot.v6.traits.png", 
        width = 9, height = 6, units = "in")
 
 # descriptive stats
@@ -964,7 +1041,7 @@ as_ggplot(gt.descriptive) +
                         0.001, 0.5), 
                   y = c(1,     1,
                         0.5,   0.5))
-ggsave("3_results/1_plots/multipage_boxplot.v6.descriptive.png", 
+ggsave("4_plots/multipage_boxplot.v6.descriptive.png", 
        width = 6, height = 6, units = "in")
 
 #------------------------------------------------------------------------
@@ -972,7 +1049,6 @@ ggsave("3_results/1_plots/multipage_boxplot.v6.descriptive.png",
 
 
 df.o <- df.rescaled 
-# df.o <- df
 
 traits <- colnames(df)[c(7, 11:25, 29, 31, 38, 44, 46:47, 49:50, 54:61)]
 
@@ -1122,7 +1198,53 @@ for (x in 1:length(traits)) {
   
 }
 
-fname <- paste0("3_results/pgls.results.v4.Ochthornis.Dendroplex.csv")
+fname <- paste0("3_results/pgls.results.v4.Ochthornis.Dendroplex.reassigned.csv")
+write.csv(df.pgls, file = fname, row.names = FALSE)
+
+
+#------------------------------------------------------------------------
+# run with Ochthornis and Dendroplex removed
+
+
+df.o <- df.o %>% 
+  dplyr::filter(species != "Ochthornis_littoralis" & species != "Dendroplex_kienerii") 
+
+df.pgls <- data.frame(trait=character(),
+                      estimate=double(), 
+                      p=double(), 
+                      t=double(), 
+                      aicc=double(), 
+                      slope=double(), 
+                      int=double(), 
+                      sterr.int=double(), 
+                      sterr.slope=double() 
+) 
+
+for (x in 1:length(traits)) {
+  i <- traits[x]
+  
+  # call trait function for each trait
+  print(paste0("working on trait: ", i, collapse = ", "))
+  cat("\n")
+  colnum <- which(colnames(df.o) == i)
+  
+  res <- pgls.char(df.o, char=colnum)
+  pgls.res <- as.data.frame(round(as.numeric(res$estimate), digits = 3))
+  colnames(pgls.res) <- "estimate"
+  pgls.res$p <- round(as.numeric(res$p), digits = 4)
+  pgls.res$t <- round(as.numeric(res$t), digits = 3) 
+  pgls.res$aicc <- round(as.numeric(res$aicc[1,1]), digits = 3) 
+  pgls.res$slope <- round(as.numeric(res$slope), digits = 3) 
+  pgls.res$int <- round(as.numeric(res$int), digits = 3) 
+  pgls.res$sterr.int <- round(as.numeric(res$sterr[1]), digits = 3) 
+  pgls.res$sterr.slope <- round(as.numeric(res$sterr[2]), digits = 3) 
+  pgls.res$trait <- i
+  pgls.res <- pgls.res[,c(9,1:8)]
+  df.pgls <- bind_rows(df.pgls, pgls.res)
+  
+}
+
+fname <- paste0("3_results/pgls.results.v4.Ochthornis.Dendroplex.removed.csv")
 write.csv(df.pgls, file = fname, row.names = FALSE)
 
 
@@ -1290,6 +1412,8 @@ fname <- paste0("3_results/pgls.results.HWIvsGenetics.v2.csv")
 write.csv(df.pgls, file = fname, row.names = FALSE)
 
 #------------------------------------------------------------------------
+
+save.image()
 
 quit()
 
