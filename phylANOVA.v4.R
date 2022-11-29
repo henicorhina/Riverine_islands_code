@@ -11,6 +11,7 @@ library(forcats)
 library(caper)
 library(qpcR)
 library(geiger)
+library(car)
 library(here)
 
 
@@ -37,6 +38,7 @@ all_species_key <- read.csv("2_data/All_species_key.csv")
 PopGen <- read.csv("2_data/PopGenome_Fst.results.v1.csv")
 new.fst <- read.csv("2_data/PopGenome_Fst.results.v1.DAPCassignments.csv")
 genepop <- read.csv("2_data/genepop_ibd.results.v1.csv")
+het <- read.csv("2_data/Supplemental_data_table.csv")
 
 #------------------------------------------------------------------------
 # functions
@@ -337,10 +339,96 @@ new.fst <- new.fst %>%
 new.fst <- new.fst[c("species", "Nei.G_ST.pop", "nucleotide.F_ST.pop", "Dxy.pop")]
 
 df <- left_join(df, new.fst, by = "species")
+df <- left_join(df, het[,c(1,25,59:60)], by = "species")
 
 # final trait dataset for upload
 write.csv(df, file = "3_results/trait.database.formatted.final.csv", row.names = FALSE)
 # df <- read.csv("3_results/trait.database.formatted.final.csv")
+
+#------------------------------------------------------------------------
+# calculate variance inflation factor (GVIF) 
+# discard values greater than 5
+
+traits <- c("species", "Av_groups", "SNPs", "loci", "SNPs_per_locus", "av_contig_length",
+            "total_bp", "SNPs_per_bp", "Av_UCE_gene_tree_length",
+            "D", "theta", "seg_sites", "pairwise_diffs", "nuc_div",
+            "seg_sites_per_bp", "subtending_branch", "stem_length",
+            "mtDNA.branch.length", "Beak.Length_Nares", "Hand.wing.Index",
+            "Trophic.Niche", "Mass", "Range.Size", "nucleotide.F_ST",
+            "Nei.G_ST", "Dxy", "e_statistic", "e_slope", "a_statistic",
+            "a_slope", "Nei.G_ST.pop", "nucleotide.F_ST.pop", "Dxy.pop",
+            "Sister_clade_richness", "heterozygosity")
+
+df.temp <- df[,traits]
+rownames(df.temp) <- df$species
+df.temp <- df.temp %>% dplyr::filter(species != "Elaenia_pelzelni" | species != "Leucippus_chlorocercus")
+
+# Data attributes:
+model <- lm(av_contig_length ~ loci + total_bp, data = df.temp)
+vif(model)
+# these are all below 5
+
+# Genetic structure
+model <- lm(Dxy ~ Av_groups + SNPs_per_bp + SNPs_per_locus + SNPs + mtDNA.branch.length + Av_UCE_gene_tree_length + pairwise_diffs, data = df.temp)
+vif(model)
+# Three are higher than 5: SNPs_per_bp, SNPs_per_locus, SNPs. Remove latter two for next:
+model <- lm(Dxy ~ Av_groups + SNPs_per_bp + mtDNA.branch.length + Av_UCE_gene_tree_length + pairwise_diffs, data = df.temp)
+vif(model)
+# these are all below 5
+
+# gene flow metrics
+model <- lm(Nei.G_ST ~ e_statistic + Dxy, data = df.temp)
+vif(model)
+# these are all below 5
+
+# Genetic diversity and population size
+model <- lm(theta ~ nuc_div + seg_sites + D + heterozygosity + Range.Size, data = df.temp)
+vif(model)
+# nuc_div and seg_sites are above 5
+model <- lm(theta ~ D + heterozygosity + Range.Size, data = df.temp)
+vif(model)
+# these are all below 5
+
+
+# Species traits
+model <- lm(Mass ~ Beak.Length_Nares + Hand.wing.Index + Trophic.Niche, data = df.temp)
+vif(model)
+# these are all below 5
+
+# Speciation dynamics
+model <- lm(stem_length ~ subtending_branch + Sister_clade_richness, data = df.temp)
+vif(model)
+# these are all below 5
+
+
+
+# all together now (tons above 5. Weird.) Try trimming down to just genetics metrics to get a better set
+model <- lm(av_contig_length ~ loci + total_bp + Dxy + Av_groups + SNPs_per_bp + mtDNA.branch.length + Av_UCE_gene_tree_length + pairwise_diffs + Nei.G_ST + e_statistic + theta + D + heterozygosity + Range.Size + Mass + Beak.Length_Nares + Hand.wing.Index + Trophic.Niche + stem_length + subtending_branch + Sister_clade_richness, data = df.temp)
+# remove contig length descriptive stats
+model <- lm(Dxy ~ Av_groups + SNPs_per_bp + mtDNA.branch.length + Av_UCE_gene_tree_length + pairwise_diffs + Nei.G_ST + e_statistic + theta + D + heterozygosity + Range.Size + Mass + Beak.Length_Nares + Hand.wing.Index + Trophic.Niche + stem_length + subtending_branch + Sister_clade_richness, data = df.temp)
+# remove traits
+model <- lm(Dxy ~ Av_groups + SNPs_per_bp + mtDNA.branch.length + Av_UCE_gene_tree_length + pairwise_diffs + Nei.G_ST + e_statistic + theta + D + heterozygosity + stem_length + subtending_branch + Sister_clade_richness, data = df.temp)
+# remove subtending branch stuff, so just pop gen stats now
+model <- lm(Dxy ~ Av_groups + SNPs_per_bp + mtDNA.branch.length + Av_UCE_gene_tree_length + pairwise_diffs + Nei.G_ST + e_statistic + theta + D + heterozygosity, data = df.temp)
+# remove pairwise_diffs and SNPs_per_bp
+model <- lm(Dxy ~ Av_groups + mtDNA.branch.length + Av_UCE_gene_tree_length + Nei.G_ST + e_statistic + theta + D + heterozygosity, data = df.temp)
+model <- lm(Nei.G_ST ~ Dxy + mtDNA.branch.length + Av_UCE_gene_tree_length + Av_groups + e_statistic + theta + D + heterozygosity, data = df.temp)
+vif(model)
+
+# this last one looks like a good set. Plot
+vif_values <- vif(model)
+barplot(vif_values, main = "VIF Values", horiz = TRUE, col = "steelblue")
+abline(v = 5, lwd = 3, lty = 2)
+vif_values[vif_values > 5]
+
+# correlation matrix for the final set
+traits <- c("Dxy", "Av_groups", "mtDNA.branch.length", "Av_UCE_gene_tree_length", "Nei.G_ST", "e_statistic", "theta", "D", "heterozygosity")
+df.temp <- df %>% dplyr::filter(species != "Elaenia_pelzelni" & species != "Leucippus_chlorocercus")
+df.temp <- df.temp[,traits]
+cor(df.temp)
+
+# traits to remove from final analysis
+remove <- c("pairwise_diffs", "SNPs_per_bp", "SNPs_per_locus", "SNPs", "nuc_div", "seg_sites")
 
 #------------------------------------------------------------------------
 # traits <- colnames(df)[c(13, 16:30, 32, 36:37)] # old version
