@@ -341,6 +341,11 @@ new.fst <- new.fst[c("species", "Nei.G_ST.pop", "nucleotide.F_ST.pop", "Dxy.pop"
 df <- left_join(df, new.fst, by = "species")
 df <- left_join(df, het[,c(1,25,59:60)], by = "species")
 
+# some new variables
+df <- df %>% dplyr::mutate(Kipps.BillDepth = Kipps.Distance_1 / Beak.Depth_1)
+df <- df %>% dplyr::mutate(theta.bp = theta / total_bp)
+df <- df %>% dplyr::mutate(heterozygosity.bp = heterozygosity / total_bp)
+
 # final trait dataset for upload
 write.csv(df, file = "3_results/trait.database.formatted.final.csv", row.names = FALSE)
 # df <- read.csv("3_results/trait.database.formatted.final.csv")
@@ -351,13 +356,14 @@ write.csv(df, file = "3_results/trait.database.formatted.final.csv", row.names =
 
 traits <- c("species", "Av_groups", "SNPs", "loci", "SNPs_per_locus", "av_contig_length",
             "total_bp", "SNPs_per_bp", "Av_UCE_gene_tree_length",
-            "D", "theta", "seg_sites", "pairwise_diffs", "nuc_div",
+            "D", "theta", "theta.bp", "seg_sites", "pairwise_diffs", "nuc_div",
             "seg_sites_per_bp", "subtending_branch", "stem_length",
             "mtDNA.branch.length", "Beak.Length_Nares", "Hand.wing.Index",
             "Trophic.Niche", "Mass", "Range.Size", "nucleotide.F_ST",
             "Nei.G_ST", "Dxy", "e_statistic", "e_slope", "a_statistic",
             "a_slope", "Nei.G_ST.pop", "nucleotide.F_ST.pop", "Dxy.pop",
-            "Sister_clade_richness", "heterozygosity")
+            "Sister_clade_richness", "heterozygosity", "inbreeding",  "Kipps.BillDepth",
+            "DAPC", "STRUCTURE", "BAPS")
 
 df.temp <- df[,traits]
 rownames(df.temp) <- df$species
@@ -412,6 +418,7 @@ model <- lm(Dxy ~ Av_groups + SNPs_per_bp + mtDNA.branch.length + Av_UCE_gene_tr
 model <- lm(Dxy ~ Av_groups + SNPs_per_bp + mtDNA.branch.length + Av_UCE_gene_tree_length + pairwise_diffs + Nei.G_ST + e_statistic + theta + D + heterozygosity, data = df.temp)
 # remove pairwise_diffs and SNPs_per_bp
 model <- lm(Dxy ~ Av_groups + mtDNA.branch.length + Av_UCE_gene_tree_length + Nei.G_ST + e_statistic + theta + D + heterozygosity, data = df.temp)
+model <- lm(mtDNA.branch.length ~ Av_groups + Dxy + Av_UCE_gene_tree_length + Nei.G_ST + e_statistic + theta + D + heterozygosity, data = df.temp)
 model <- lm(Nei.G_ST ~ Dxy + mtDNA.branch.length + Av_UCE_gene_tree_length + Av_groups + e_statistic + theta + D + heterozygosity, data = df.temp)
 vif(model)
 
@@ -433,14 +440,18 @@ remove <- c("pairwise_diffs", "SNPs_per_bp", "SNPs_per_locus", "SNPs", "nuc_div"
 #------------------------------------------------------------------------
 # traits <- colnames(df)[c(13, 16:30, 32, 36:37)] # old version
 # traits <- colnames(df)[c(7, 11:25, 29, 31, 38, 44, 46:47, 49:50, 54:61)]
+# traits <- c("Av_groups", "BAPS", "DAPC", "STRUCTURE")
+
 traits <- c("Av_groups", "SNPs", "loci", "SNPs_per_locus", "av_contig_length",
-           "total_bp", "SNPs_per_bp", "Av_UCE_gene_tree_length",
-           "D", "theta", "seg_sites", "pairwise_diffs", "nuc_div",
-           "seg_sites_per_bp", "subtending_branch", "stem_length",
-           "mtDNA.branch.length", "Beak.Length_Nares", "Hand.wing.Index",
-           "Trophic.Niche", "Mass", "Range.Size", "nucleotide.F_ST",
-           "Nei.G_ST", "Dxy", "e_statistic", "e_slope", "a_statistic",
-           "a_slope", "Nei.G_ST.pop", "nucleotide.F_ST.pop", "Dxy.pop")
+            "total_bp", "SNPs_per_bp", "Av_UCE_gene_tree_length",
+            "D", "theta", "theta.bp", "seg_sites", "pairwise_diffs", "nuc_div",
+            "seg_sites_per_bp", "subtending_branch", "stem_length",
+            "mtDNA.branch.length", "Beak.Length_Nares", "Hand.wing.Index",
+            "Trophic.Niche", "Mass", "Range.Size", "nucleotide.F_ST",
+            "Nei.G_ST", "Dxy", "e_statistic", "e_slope", "a_statistic",
+            "a_slope", "Nei.G_ST.pop", "nucleotide.F_ST.pop", "Dxy.pop",
+            "Sister_clade_richness", "heterozygosity", "inbreeding",  "Kipps.BillDepth",
+            "DAPC", "STRUCTURE", "BAPS")
 
 # just functional traits
 # traits <- colnames(df)[30:47] 
@@ -760,385 +771,21 @@ res$anova
 
 
 #------------------------------------------------------------------------
-#plotting
-
-Av_groups <- df %>%
-  mutate(habitat = fct_relevel(habitat, "island", "floodplain", "upland")) %>%
-  ggplot( aes(x = habitat, y = Av_groups)) + 
-  geom_boxplot(outlier.shape = NA) + 
-  geom_jitter(position=position_jitter(0.2)) +
-  theme_classic() +
-  theme(plot.margin = unit(c(10,10,10,10), "pt"), legend.position = "none") +
-  xlab("\n") +
-  ylab("\nNumber of groups (average)") 
-
-Dxy <- df %>%
-  mutate(habitat = fct_relevel(habitat, "island", "floodplain", "upland")) %>%
-  ggplot( aes(x = habitat, y = Dxy)) + 
-  geom_boxplot(outlier.shape = NA) + 
-  geom_jitter(position=position_jitter(0.2)) +
-  theme_classic() +
-  theme(plot.margin = unit(c(10,10,10,10), "pt"), legend.position = "none") +
-  ggtitle("\n") +
-  xlab("\n") +
-  ylab("\nDxy") 
-
-Fst <- df %>%
-  mutate(habitat = fct_relevel(habitat, "island", "floodplain", "upland")) %>%
-  ggplot( aes(x = habitat, y = Nei.G_ST)) + 
-  geom_boxplot(outlier.shape = NA) + 
-  geom_jitter(position=position_jitter(0.2)) +
-  theme_classic() +
-  theme(plot.margin = unit(c(10,10,10,10), "pt"), legend.position = "none") +
-  ggtitle("\n") +
-  xlab("\n") +
-  ylab("\n\nFst") 
-
-SNPs <- df %>%
-  mutate(habitat = fct_relevel(habitat, "island", "floodplain", "upland")) %>%
-  ggplot( aes(x = habitat, y = SNPs)) + 
-  geom_boxplot(outlier.shape = NA) + 
-  geom_jitter(position=position_jitter(0.2)) +
-  theme_classic() +
-  theme(plot.margin = unit(c(10,10,10,10), "pt"), legend.position = "none") +
-  xlab("\n") +
-  ylab("\nTotal SNPs") 
-
-SNPs_per_locus <- df %>%
-  mutate(habitat = fct_relevel(habitat, "island", "floodplain", "upland")) %>%
-  ggplot( aes(x = habitat, y = SNPs_per_locus)) + 
-  geom_boxplot(outlier.shape = NA) + 
-  geom_jitter(position=position_jitter(0.2)) +
-  theme_classic() +
-  theme(plot.margin = unit(c(10,10,10,10), "pt"), legend.position = "none") +
-  xlab("\n") +
-  ylab("\nSNPs per locus") 
-
-SNPs_per_bp <- df %>%
-  mutate(habitat = fct_relevel(habitat, "island", "floodplain", "upland")) %>%
-  ggplot( aes(x = habitat, y = SNPs_per_bp)) + 
-  geom_boxplot(outlier.shape = NA) + 
-  geom_jitter(position=position_jitter(0.2)) +
-  theme_classic() +
-  theme(plot.margin = unit(c(10,10,10,10), "pt"), legend.position = "none") +
-  xlab("\n") +
-  ylab("\nSNPs per bp") 
-
-loci <- df %>%
-  mutate(habitat = fct_relevel(habitat, "island", "floodplain", "upland")) %>%
-  ggplot( aes(x = habitat, y = loci)) + 
-  geom_boxplot(outlier.shape = NA) + 
-  geom_jitter(position=position_jitter(0.2)) +
-  theme_classic() +
-  theme(plot.margin = unit(c(10,10,10,10), "pt"), legend.position = "none") +
-  xlab("\n") +
-  ylab("\n\nNumber of loci") 
-
-av_contig_length <- df %>%
-  mutate(habitat = fct_relevel(habitat, "island", "floodplain", "upland")) %>%
-  ggplot( aes(x = habitat, y = av_contig_length)) + 
-  geom_boxplot(outlier.shape = NA) + 
-  geom_jitter(position=position_jitter(0.2)) +
-  theme_classic() +
-  theme(plot.margin = unit(c(10,10,10,10), "pt"), legend.position = "none") +
-  xlab("\n") +
-  ylab("\nAverage contig length") 
-
-total_bp <- df %>%
-  mutate(habitat = fct_relevel(habitat, "island", "floodplain", "upland")) %>%
-  ggplot( aes(x = habitat, y = total_bp)) + 
-  geom_boxplot(outlier.shape = NA) + 
-  geom_jitter(position=position_jitter(0.2)) +
-  theme_classic() +
-  theme(plot.margin = unit(c(10,10,10,10), "pt"), legend.position = "none") +
-  xlab("\n") +
-  ylab("\nTotal bp") 
-
-Av_gene_tree <- df %>%
-  mutate(habitat = fct_relevel(habitat, "island", "floodplain", "upland")) %>%
-  ggplot( aes(x = habitat, y = Av_UCE_gene_tree_length)) + 
-  geom_boxplot(outlier.shape = NA) + 
-  geom_jitter(position=position_jitter(0.2)) +
-  theme_classic() +
-  theme(plot.margin = unit(c(10,10,10,10), "pt"), legend.position = "none") +
-  xlab("\n") +
-  ylab("\n\nAverage UCE gene tree length") 
-
-Taj_D <- df %>%
-  mutate(habitat = fct_relevel(habitat, "island", "floodplain", "upland")) %>%
-  ggplot( aes(x = habitat, y = D)) + 
-  geom_boxplot(outlier.shape = NA) + 
-  geom_jitter(position=position_jitter(0.2)) +
-  theme_classic() +
-  theme(plot.margin = unit(c(10,10,10,10), "pt"), legend.position = "none") +
-  ggtitle("\n") +
-  xlab("\n") +
-  ylab("\nTajima's D") 
-
-theta <- df %>%
-  mutate(habitat = fct_relevel(habitat, "island", "floodplain", "upland")) %>%
-  ggplot( aes(x = habitat, y = theta)) + 
-  geom_boxplot(outlier.shape = NA) + 
-  geom_jitter(position=position_jitter(0.2)) +
-  theme_classic() +
-  theme(plot.margin = unit(c(10,10,10,10), "pt"), legend.position = "none") +
-  xlab("\n") +
-  ylab("\n\nTheta") 
-
-seg_sites <- df %>%
-  mutate(habitat = fct_relevel(habitat, "island", "floodplain", "upland")) %>%
-  ggplot( aes(x = habitat, y = seg_sites)) + 
-  geom_boxplot(outlier.shape = NA) + 
-  geom_jitter(position=position_jitter(0.2)) +
-  theme_classic() +
-  theme(plot.margin = unit(c(10,10,10,10), "pt"), legend.position = "none") +
-  xlab("\n") +
-  ylab("\nSegregating sites") 
-
-seg_sites_per_bp <- df %>%
-  mutate(habitat = fct_relevel(habitat, "island", "floodplain", "upland")) %>%
-  ggplot( aes(x = habitat, y = seg_sites_per_bp)) + 
-  geom_boxplot(outlier.shape = NA) + 
-  geom_jitter(position=position_jitter(0.2)) +
-  theme_classic() +
-  theme(plot.margin = unit(c(10,10,10,10), "pt"), legend.position = "none") +
-  xlab("\n") +
-  ylab("\nSegregating sites per bp") 
-
-pairwise_diffs <- df %>%
-  mutate(habitat = fct_relevel(habitat, "island", "floodplain", "upland")) %>%
-  ggplot( aes(x = habitat, y = pairwise_diffs)) + 
-  geom_boxplot(outlier.shape = NA) + 
-  geom_jitter(position=position_jitter(0.2)) +
-  theme_classic() +
-  theme(plot.margin = unit(c(10,10,10,10), "pt"), legend.position = "none") +
-  xlab("\n") +
-  ylab("\nAverage pairwise differences") 
-
-nuc_div <- df %>%
-  mutate(habitat = fct_relevel(habitat, "island", "floodplain", "upland")) %>%
-  ggplot( aes(x = habitat, y = nuc_div)) + 
-  geom_boxplot(outlier.shape = NA) + 
-  geom_jitter(position=position_jitter(0.2)) +
-  theme_classic() +
-  theme(plot.margin = unit(c(10,10,10,10), "pt"), legend.position = "none") +
-  ggtitle("\n") +
-  xlab("\n") +
-  ylab("\nNucleotide diversity") 
-
-Av_mtdna_tree <- df %>%
-  mutate(habitat = fct_relevel(habitat, "island", "floodplain", "upland")) %>%
-  ggplot( aes(x = habitat, y = mtDNA.branch.length)) + 
-  geom_boxplot(outlier.shape = NA) + 
-  geom_jitter(position=position_jitter(0.2)) +
-  theme_classic() +
-  theme(plot.margin = unit(c(10,10,10,10), "pt"), legend.position = "none") +
-  xlab("\n") +
-  ylab("\nAverage mtDNA tree length") 
-
-
-IBD <- df %>%
-  mutate(habitat = fct_relevel(habitat, "island", "floodplain", "upland")) %>%
-  ggplot( aes(x = habitat, y = e_slope)) + 
-  geom_boxplot(outlier.shape = NA) + 
-  geom_jitter(position=position_jitter(0.2)) +
-  theme_classic() +
-  theme(plot.margin = unit(c(10,10,10,10), "pt"), legend.position = "none") +
-  xlab("\n") +
-  ylab("\nIBD (slope)") 
-
-
-# subtending branch
-
-stem <- df %>%
-  mutate(habitat = fct_relevel(habitat, "island", "floodplain", "upland")) %>%
-  ggplot( aes(x = habitat, y = stem_length)) + 
-  geom_boxplot(outlier.shape = NA) + 
-  geom_jitter(position=position_jitter(0.2)) +
-  theme_classic() +
-  theme(plot.margin = unit(c(10,10,10,10), "pt"), legend.position = "none") +
-  xlab("\n") +
-  ylab("\nStem branch length") 
-
-subtending <- df %>%
-  mutate(habitat = fct_relevel(habitat, "island", "floodplain", "upland")) %>%
-  ggplot( aes(x = habitat, y = subtending_branch)) + 
-  geom_boxplot(outlier.shape = NA) + 
-  geom_jitter(position=position_jitter(0.2)) +
-  theme_classic() +
-  theme(plot.margin = unit(c(10,10,10,10), "pt"), legend.position = "none") +
-  xlab("\n") +
-  ylab("\nSubtending branch length") 
-
-
-# traits 
-
-hwi <- df %>%
-  mutate(habitat = fct_relevel(habitat, "island", "floodplain", "upland")) %>%
-  ggplot( aes(x = habitat, y = Hand.wing.Index)) + 
-  geom_boxplot(outlier.shape = NA) + 
-  geom_jitter(position=position_jitter(0.2)) +
-  theme_classic() +
-  theme(plot.margin = unit(c(10,10,10,10), "pt"), legend.position = "none") +
-  xlab("\n") +
-  ylab("\nHand-wing Index") 
-
-Range.Size <- df %>%
-  mutate(habitat = fct_relevel(habitat, "island", "floodplain", "upland")) %>%
-  ggplot( aes(x = habitat, y = log(Range.Size))) + 
-  geom_boxplot(outlier.shape = NA) + 
-  geom_jitter(position=position_jitter(0.2)) +
-  theme_classic() +
-  theme(plot.margin = unit(c(10,10,10,10), "pt"), legend.position = "none") +
-  xlab("\n") +
-  ylab("\nRange size (log)") 
-
-mass <- df %>%
-  mutate(habitat = fct_relevel(habitat, "island", "floodplain", "upland")) %>%
-  ggplot( aes(x = habitat, y = log(Mass))) + 
-  geom_boxplot(outlier.shape = NA) + 
-  geom_jitter(position=position_jitter(0.2)) +
-  theme_classic() +
-  theme(plot.margin = unit(c(10,10,10,10), "pt"), legend.position = "none") +
-  xlab("\n") +
-  ylab("\nMass (log)") 
-
-Beak.Length_Nares <- df %>%
-  mutate(habitat = fct_relevel(habitat, "island", "floodplain", "upland")) %>%
-  ggplot( aes(x = habitat, y = Beak.Length_Nares)) + 
-  geom_boxplot(outlier.shape = NA) + 
-  geom_jitter(position=position_jitter(0.2)) +
-  theme_classic() +
-  theme(plot.margin = unit(c(10,10,10,10), "pt"), legend.position = "none") +
-  xlab("\n") +
-  ylab("\nBeak length at nares") 
-
-
-Trophic.Niche <- df %>%
-  mutate(habitat = fct_relevel(habitat, "island", "floodplain", "upland")) %>%
-  ggplot( aes(x = habitat, y = Trophic.Niche)) + 
-  geom_boxplot(outlier.shape = NA) + 
-  geom_jitter(position=position_jitter(0.2)) +
-  theme_classic() +
-  theme(plot.margin = unit(c(10,10,10,10), "pt"), legend.position = "none") +
-  xlab("\n") +
-  ylab("\nDiet categories") 
-
-rownames(df) <- df$species
-df.passerine <- df[c("Cantorchilus_leucotis", "Conirostrum_bicolor", "Conirostrum_margaritae", "Cranioleuca_vulpecula",
-                     "Dendroplex_kienerii", "Elaenia_pelzelni", "Formicarius_analis", "Formicarius_colma", "Furnarius_minor",
-                     "Hylophylax_naevia", "Hylophylax_punctulata", "Knipolegus_orenocensis", "Mazaria_propinqua",
-                     "Myrmeciza_fortis", "Myrmeciza_hyperythra", "Myrmoborus_leucophrys", "Myrmoborus_lugubris", "Myrmoborus_myotherinus",
-                     "Myrmochanes_hemileucus", "Myrmotherula_assimilis", "Myrmotherula_klagesi", "Ochthornis_littoralis",
-                     "Pheugopedius_coraya", "Pipra_erythrocephala", "Pipra_filicauda", "Saltator_coerulescens",
-                     "Saltator_grossus", "Schiffornis_major", "Schiffornis_turdina", "Serpophaga_hypoleuca",
-                     "Stigmatura_napensis", "Synallaxis_gujanensis", "Synallaxis_rutilans", "Tachyphonus_cristatus",
-                     "Tachyphonus_luctuosus", "Thamnophilus_cryptoleucus", "Xiphorhynchus_elegans", "Xiphorhynchus_obsoletus"),]
-
-hwi.30 <- df.passerine %>%
-  mutate(habitat = fct_relevel(habitat, "island", "floodplain", "upland")) %>%
-  ggplot( aes(x = habitat, y = Hand.wing.Index)) + 
-  geom_boxplot(outlier.shape = NA) + 
-  geom_jitter(position=position_jitter(0.2)) +
-  theme_classic() +
-  theme(plot.margin = unit(c(10,10,10,10), "pt"), legend.position = "none") +
-  xlab("\n") +
-  ylab("\nHand-wing Index (passerines)") 
-
-
-
-#------------------------------------------------------------------------
-# plot as grid
-
-# take one, not working
-# ggarrange(Fst, Dxy, nuc_div, Taj_D,
-#           log.theta, pairwise_diffs, seg_sites, seg_sites_per_bp,
-#           loci, total_bp, av_contig_length, Av_groups, Av_gene_tree,
-#           Av_gene_tree, SNPs, SNPs_per_locus, SNPs_per_bp, 
-#           ncol = 4, nrow = 4                                   
-# ) 
-# text.p <- ggparagraph(text = "Habitat", size = 11, color = "black")
-# 
-# 
-# grid.arrange(Fst, Dxy, nuc_div, Taj_D,
-#              log.theta, pairwise_diffs, seg_sites, seg_sites_per_bp,
-#              loci, total_bp, av_contig_length, Av_groups, Av_gene_tree,
-#              SNPs, SNPs_per_locus, SNPs_per_bp,
-#              ncol = 4)   
-
-# take 2, working
-gt <- arrangeGrob(seg_sites_per_bp, SNPs_per_locus, Av_mtdna_tree, Fst, 
-                  SNPs, Av_gene_tree, IBD, Dxy, 
-                  SNPs_per_bp, nuc_div, seg_sites, theta, 
-                  pairwise_diffs, Av_groups, Taj_D,
-                  nrow = 4, ncol = 4)
-
-as_ggplot(gt) +
-  draw_plot_label(label = c("A*", "B*", "C*", "D*",
-                            "E*", "F*", "G*", "H*",
-                            "I*", "J*", "K*", "L*",
-                            "M", "N", "O", ""), 
-                  size = 15,
-                  x = c(0.001, 0.25, 0.5, 0.75,
-                        0.001, 0.25, 0.5, 0.75,
-                        0.001, 0.25, 0.5, 0.75,
-                        0.001, 0.25, 0.5, 0.75), 
-                  y = c(1,    1,    1,    1,
-                        0.75, 0.75, 0.75, 0.75,
-                        0.5, 0.5, 0.5, 0.5,
-                        0.25, 0.25, 0.25, 0.25))
-
-ggsave("4_plots/multipage_boxplot.v6.pdf", 
-       width = 12, height = 12, units = "in")
-
-
-gt.sub <- arrangeGrob(subtending, stem,
-                      nrow = 1, ncol = 2)
-as_ggplot(gt.sub) +
-  draw_plot_label(label = c("A", "B"), 
-                  size = 15,
-                  x = c(0.001, 0.5), 
-                  y = c(1,     1))
-ggsave("4_plots/multipage_boxplot.v6.subtending.pdf", 
-       width = 6, height = 3, units = "in")
-
-# traits
-gt.trait <- arrangeGrob(hwi, hwi.30, mass,
-                        Range.Size, Beak.Length_Nares, Trophic.Niche,
-                        nrow = 2, ncol = 3)
-as_ggplot(gt.trait) +
-  draw_plot_label(label = c("A", "B", "C",
-                            "D*", "E", "F"), 
-                  size = 15,
-                  x = c(0.001, 0.33, 0.65,
-                        0.001, 0.33, 0.65), 
-                  y = c(1,     1,    1,
-                        0.5,   0.5,  0.5))
-ggsave("4_plots/multipage_boxplot.v6.traits.png", 
-       width = 9, height = 6, units = "in")
-
-# descriptive stats
-gt.descriptive <- arrangeGrob(total_bp, av_contig_length, 
-                              loci,
-                        nrow = 2, ncol = 2)
-as_ggplot(gt.descriptive) +
-  draw_plot_label(label = c("A*", "B*",
-                            "C", ""), 
-                  size = 15,
-                  x = c(0.001, 0.5,
-                        0.001, 0.5), 
-                  y = c(1,     1,
-                        0.5,   0.5))
-ggsave("4_plots/multipage_boxplot.v6.descriptive.png", 
-       width = 6, height = 6, units = "in")
-
-#------------------------------------------------------------------------
 # pgls
 
 
 df.o <- df.rescaled 
 
-traits <- colnames(df)[c(7, 11:25, 29, 31, 38, 44, 46:47, 49:50, 54:61)]
+traits <- c("Av_groups", "SNPs", "loci", "SNPs_per_locus", "av_contig_length",
+            "total_bp", "SNPs_per_bp", "Av_UCE_gene_tree_length",
+            "D", "theta", "theta.bp", "seg_sites", "pairwise_diffs", "nuc_div",
+            "seg_sites_per_bp", "subtending_branch", "stem_length",
+            "mtDNA.branch.length", "Beak.Length_Nares", "Hand.wing.Index",
+            "Trophic.Niche", "Mass", "Range.Size", "nucleotide.F_ST",
+            "Nei.G_ST", "Dxy", "e_statistic", "e_slope", "a_statistic",
+            "a_slope", "Nei.G_ST.pop", "nucleotide.F_ST.pop", "Dxy.pop",
+            "Sister_clade_richness", "heterozygosity", "inbreeding",  "Kipps.BillDepth",
+            "DAPC", "STRUCTURE", "BAPS")
 
 df.pgls <- data.frame(trait=character(),
                       estimate=double(), 
@@ -1149,7 +796,7 @@ df.pgls <- data.frame(trait=character(),
                       int=double(), 
                       sterr.int=double(), 
                       sterr.slope=double() 
-                      ) 
+) 
 
 for (x in 1:length(traits)) {
   i <- traits[x]
@@ -1290,7 +937,6 @@ fname <- paste0("3_results/pgls.results.v4.Ochthornis.Dendroplex.reassigned.csv"
 write.csv(df.pgls, file = fname, row.names = FALSE)
 
 
-#------------------------------------------------------------------------
 # run with Ochthornis and Dendroplex removed
 
 
@@ -1337,8 +983,545 @@ write.csv(df.pgls, file = fname, row.names = FALSE)
 
 
 
+
 #------------------------------------------------------------------------
-# plot Fst and HWI separately
+#plotting
+
+Av_groups <- df %>%
+  mutate(habitat = fct_relevel(habitat, "island", "floodplain", "upland")) %>%
+  ggplot( aes(x = habitat, y = Av_groups)) + 
+  geom_boxplot(outlier.shape = NA) + 
+  geom_jitter(position=position_jitter(height = 0, width = 0.35)) +
+  theme_classic() +
+  theme(plot.margin = unit(c(10,10,10,10), "pt"), legend.position = "none") +
+  xlab("\n") +
+  ylab("\nNumber of groups (average)") 
+
+Dxy <- df %>%
+  mutate(habitat = fct_relevel(habitat, "island", "floodplain", "upland")) %>%
+  ggplot( aes(x = habitat, y = Dxy)) + 
+  geom_boxplot(outlier.shape = NA) + 
+  geom_jitter(position=position_jitter(height = 0, width = 0.35)) +
+  theme_classic() +
+  theme(plot.margin = unit(c(10,10,10,10), "pt"), legend.position = "none") +
+  ggtitle("\n") +
+  xlab("\n") +
+  ylab("\nDxy") 
+
+Fst <- df %>%
+  mutate(habitat = fct_relevel(habitat, "island", "floodplain", "upland")) %>%
+  ggplot( aes(x = habitat, y = Nei.G_ST)) + 
+  geom_boxplot(outlier.shape = NA) + 
+  geom_jitter(position=position_jitter(height = 0, width = 0.35)) +
+  theme_classic() +
+  theme(plot.margin = unit(c(10,10,10,10), "pt"), legend.position = "none") +
+  ggtitle("\n") +
+  xlab("\n") +
+  ylab("\n\nFst") 
+
+SNPs <- df %>%
+  mutate(habitat = fct_relevel(habitat, "island", "floodplain", "upland")) %>%
+  ggplot( aes(x = habitat, y = SNPs)) + 
+  geom_boxplot(outlier.shape = NA) + 
+  geom_jitter(position=position_jitter(height = 0, width = 0.35)) +
+  theme_classic() +
+  theme(plot.margin = unit(c(10,10,10,10), "pt"), legend.position = "none") +
+  xlab("\n") +
+  ylab("\nTotal SNPs") 
+
+SNPs_per_locus <- df %>%
+  mutate(habitat = fct_relevel(habitat, "island", "floodplain", "upland")) %>%
+  ggplot( aes(x = habitat, y = SNPs_per_locus)) + 
+  geom_boxplot(outlier.shape = NA) + 
+  geom_jitter(position=position_jitter(height = 0, width = 0.35)) +
+  theme_classic() +
+  theme(plot.margin = unit(c(10,10,10,10), "pt"), legend.position = "none") +
+  xlab("\n") +
+  ylab("\nSNPs per locus") 
+
+SNPs_per_bp <- df %>%
+  mutate(habitat = fct_relevel(habitat, "island", "floodplain", "upland")) %>%
+  ggplot( aes(x = habitat, y = SNPs_per_bp)) + 
+  geom_boxplot(outlier.shape = NA) + 
+  geom_jitter(position=position_jitter(height = 0, width = 0.35)) +
+  theme_classic() +
+  theme(plot.margin = unit(c(10,10,10,10), "pt"), legend.position = "none") +
+  xlab("\n") +
+  ylab("\nSNPs per bp") 
+
+loci <- df %>%
+  mutate(habitat = fct_relevel(habitat, "island", "floodplain", "upland")) %>%
+  ggplot( aes(x = habitat, y = loci)) + 
+  geom_boxplot(outlier.shape = NA) + 
+  geom_jitter(position=position_jitter(height = 0, width = 0.35)) +
+  theme_classic() +
+  theme(plot.margin = unit(c(10,10,10,10), "pt"), legend.position = "none") +
+  xlab("\n") +
+  ylab("\n\nNumber of loci") 
+
+av_contig_length <- df %>%
+  mutate(habitat = fct_relevel(habitat, "island", "floodplain", "upland")) %>%
+  ggplot( aes(x = habitat, y = av_contig_length)) + 
+  geom_boxplot(outlier.shape = NA) + 
+  geom_jitter(position=position_jitter(height = 0, width = 0.35)) +
+  theme_classic() +
+  theme(plot.margin = unit(c(10,10,10,10), "pt"), legend.position = "none") +
+  xlab("\n") +
+  ylab("\nAverage contig length") 
+
+total_bp <- df %>%
+  mutate(habitat = fct_relevel(habitat, "island", "floodplain", "upland")) %>%
+  ggplot( aes(x = habitat, y = total_bp)) + 
+  geom_boxplot(outlier.shape = NA) + 
+  geom_jitter(position=position_jitter(height = 0, width = 0.35)) +
+  theme_classic() +
+  theme(plot.margin = unit(c(10,10,10,10), "pt"), legend.position = "none") +
+  xlab("\n") +
+  ylab("\nTotal bp") 
+
+Av_gene_tree <- df %>%
+  mutate(habitat = fct_relevel(habitat, "island", "floodplain", "upland")) %>%
+  ggplot( aes(x = habitat, y = Av_UCE_gene_tree_length)) + 
+  geom_boxplot(outlier.shape = NA) + 
+  geom_jitter(position=position_jitter(height = 0, width = 0.35)) +
+  theme_classic() +
+  theme(plot.margin = unit(c(10,10,10,10), "pt"), legend.position = "none") +
+  xlab("\n") +
+  ylab("\n\nAverage UCE gene tree length") 
+
+Taj_D <- df %>%
+  mutate(habitat = fct_relevel(habitat, "island", "floodplain", "upland")) %>%
+  ggplot( aes(x = habitat, y = D)) + 
+  geom_boxplot(outlier.shape = NA) + 
+  geom_jitter(position=position_jitter(height = 0, width = 0.35)) +
+  theme_classic() +
+  theme(plot.margin = unit(c(10,10,10,10), "pt"), legend.position = "none") +
+  ggtitle("\n") +
+  xlab("\n") +
+  ylab("\nTajima's D") 
+
+theta <- df %>%
+  mutate(habitat = fct_relevel(habitat, "island", "floodplain", "upland")) %>%
+  ggplot( aes(x = habitat, y = theta)) + 
+  geom_boxplot(outlier.shape = NA) + 
+  geom_jitter(position=position_jitter(height = 0, width = 0.35)) +
+  theme_classic() +
+  theme(plot.margin = unit(c(10,10,10,10), "pt"), legend.position = "none") +
+  xlab("\n") +
+  ylab("\n\nTheta") 
+
+theta.bp <- df %>%
+  mutate(habitat = fct_relevel(habitat, "island", "floodplain", "upland")) %>%
+  ggplot( aes(x = habitat, y = theta.bp)) + 
+  geom_boxplot(outlier.shape = NA) + 
+  geom_jitter(position=position_jitter(height = 0, width = 0.35)) +
+  theme_classic() +
+  theme(plot.margin = unit(c(10,10,10,10), "pt"), legend.position = "none") +
+  xlab("\n") +
+  ylab("\n\nTheta/bp") 
+
+seg_sites <- df %>%
+  mutate(habitat = fct_relevel(habitat, "island", "floodplain", "upland")) %>%
+  ggplot( aes(x = habitat, y = seg_sites)) + 
+  geom_boxplot(outlier.shape = NA) + 
+  geom_jitter(position=position_jitter(height = 0, width = 0.35)) +
+  theme_classic() +
+  theme(plot.margin = unit(c(10,10,10,10), "pt"), legend.position = "none") +
+  xlab("\n") +
+  ylab("\nSegregating sites") 
+
+seg_sites_per_bp <- df %>%
+  mutate(habitat = fct_relevel(habitat, "island", "floodplain", "upland")) %>%
+  ggplot( aes(x = habitat, y = seg_sites_per_bp)) + 
+  geom_boxplot(outlier.shape = NA) + 
+  geom_jitter(position=position_jitter(height = 0, width = 0.35)) +
+  theme_classic() +
+  theme(plot.margin = unit(c(10,10,10,10), "pt"), legend.position = "none") +
+  xlab("\n") +
+  ylab("\nSegregating sites per bp") 
+
+pairwise_diffs <- df %>%
+  mutate(habitat = fct_relevel(habitat, "island", "floodplain", "upland")) %>%
+  ggplot( aes(x = habitat, y = pairwise_diffs)) + 
+  geom_boxplot(outlier.shape = NA) + 
+  geom_jitter(position=position_jitter(height = 0, width = 0.35)) +
+  theme_classic() +
+  theme(plot.margin = unit(c(10,10,10,10), "pt"), legend.position = "none") +
+  xlab("\n") +
+  ylab("\nAverage pairwise differences") 
+
+nuc_div <- df %>%
+  mutate(habitat = fct_relevel(habitat, "island", "floodplain", "upland")) %>%
+  ggplot( aes(x = habitat, y = nuc_div)) + 
+  geom_boxplot(outlier.shape = NA) + 
+  geom_jitter(position=position_jitter(height = 0, width = 0.35)) +
+  theme_classic() +
+  theme(plot.margin = unit(c(10,10,10,10), "pt"), legend.position = "none") +
+  ggtitle("\n") +
+  xlab("\n") +
+  ylab("\nNucleotide diversity") 
+
+Av_mtdna_tree <- df %>%
+  mutate(habitat = fct_relevel(habitat, "island", "floodplain", "upland")) %>%
+  ggplot( aes(x = habitat, y = mtDNA.branch.length)) + 
+  geom_boxplot(outlier.shape = NA) + 
+  geom_jitter(position=position_jitter(height = 0, width = 0.35)) +
+  theme_classic() +
+  theme(plot.margin = unit(c(10,10,10,10), "pt"), legend.position = "none") +
+  xlab("\n") +
+  ylab("\nAverage mtDNA tree length") 
+
+
+IBD <- df %>%
+  mutate(habitat = fct_relevel(habitat, "island", "floodplain", "upland")) %>%
+  ggplot( aes(x = habitat, y = e_slope)) + 
+  geom_boxplot(outlier.shape = NA) + 
+  geom_jitter(position=position_jitter(height = 0, width = 0.35)) +
+  theme_classic() +
+  theme(plot.margin = unit(c(10,10,10,10), "pt"), legend.position = "none") +
+  xlab("\n") +
+  ylab("\nIBD (slope)") 
+
+heterozygosity <- df %>%
+  mutate(habitat = fct_relevel(habitat, "island", "floodplain", "upland")) %>%
+  ggplot( aes(x = habitat, y = heterozygosity)) + 
+  geom_boxplot(outlier.shape = NA) + 
+  geom_jitter(position=position_jitter(height = 0, width = 0.35)) +
+  theme_classic() +
+  theme(plot.margin = unit(c(10,10,10,10), "pt"), legend.position = "none") +
+  xlab("\n") +
+  ylab("\nheterozygosity") 
+
+inbreeding <- df %>%
+  mutate(habitat = fct_relevel(habitat, "island", "floodplain", "upland")) %>%
+  ggplot( aes(x = habitat, y = inbreeding)) + 
+  geom_boxplot(outlier.shape = NA) + 
+  geom_jitter(position=position_jitter(height = 0, width = 0.35)) +
+  theme_classic() +
+  theme(plot.margin = unit(c(10,10,10,10), "pt"), legend.position = "none") +
+  xlab("\n") +
+  ylab("\ninbreeding") 
+
+
+# subtending branch
+
+stem <- df %>%
+  mutate(habitat = fct_relevel(habitat, "island", "floodplain", "upland")) %>%
+  ggplot( aes(x = habitat, y = stem_length)) + 
+  geom_boxplot(outlier.shape = NA) + 
+  geom_jitter(position=position_jitter(height = 0, width = 0.35)) +
+  theme_classic() +
+  theme(plot.margin = unit(c(10,10,10,10), "pt"), legend.position = "none") +
+  xlab("\n") +
+  ylab("\nStem branch length") 
+
+subtending <- df %>%
+  mutate(habitat = fct_relevel(habitat, "island", "floodplain", "upland")) %>%
+  ggplot( aes(x = habitat, y = subtending_branch)) + 
+  geom_boxplot(outlier.shape = NA) + 
+  geom_jitter(position=position_jitter(height = 0, width = 0.35)) +
+  theme_classic() +
+  theme(plot.margin = unit(c(10,10,10,10), "pt"), legend.position = "none") +
+  xlab("\n") +
+  ylab("\nSubtending branch length") 
+
+Sister_clade_richness <- df %>%
+  mutate(habitat = fct_relevel(habitat, "island", "floodplain", "upland")) %>%
+  ggplot( aes(x = habitat, y = Sister_clade_richness)) + 
+  geom_boxplot(outlier.shape = NA) + 
+  geom_jitter(position=position_jitter(height = 0, width = 0.35)) +
+  theme_classic() +
+  theme(plot.margin = unit(c(10,10,10,10), "pt"), legend.position = "none") +
+  xlab("\n") +
+  ylab("\nSister_clade_richness") 
+
+
+
+# traits 
+
+hwi <- df %>%
+  mutate(habitat = fct_relevel(habitat, "island", "floodplain", "upland")) %>%
+  ggplot( aes(x = habitat, y = Hand.wing.Index)) + 
+  geom_boxplot(outlier.shape = NA) + 
+  geom_jitter(position=position_jitter(height = 0, width = 0.35)) +
+  theme_classic() +
+  theme(plot.margin = unit(c(10,10,10,10), "pt"), legend.position = "none") +
+  xlab("\n") +
+  ylab("\nHand-wing Index") 
+
+Range.Size <- df %>%
+  mutate(habitat = fct_relevel(habitat, "island", "floodplain", "upland")) %>%
+  ggplot( aes(x = habitat, y = log(Range.Size))) + 
+  geom_boxplot(outlier.shape = NA) + 
+  geom_jitter(position=position_jitter(height = 0, width = 0.35)) +
+  theme_classic() +
+  theme(plot.margin = unit(c(10,10,10,10), "pt"), legend.position = "none") +
+  xlab("\n") +
+  ylab("\nRange size (log)") 
+
+mass <- df %>%
+  mutate(habitat = fct_relevel(habitat, "island", "floodplain", "upland")) %>%
+  ggplot( aes(x = habitat, y = log(Mass))) + 
+  geom_boxplot(outlier.shape = NA) + 
+  geom_jitter(position=position_jitter(height = 0, width = 0.35)) +
+  theme_classic() +
+  theme(plot.margin = unit(c(10,10,10,10), "pt"), legend.position = "none") +
+  xlab("\n") +
+  ylab("\nMass (log)") 
+
+Beak.Length_Nares <- df %>%
+  mutate(habitat = fct_relevel(habitat, "island", "floodplain", "upland")) %>%
+  ggplot( aes(x = habitat, y = Beak.Length_Nares)) + 
+  geom_boxplot(outlier.shape = NA) + 
+  geom_jitter(position=position_jitter(height = 0, width = 0.35)) +
+  theme_classic() +
+  theme(plot.margin = unit(c(10,10,10,10), "pt"), legend.position = "none") +
+  xlab("\n") +
+  ylab("\nBeak length at nares") 
+
+
+Trophic.Niche <- df %>%
+  mutate(habitat = fct_relevel(habitat, "island", "floodplain", "upland")) %>%
+  ggplot( aes(x = habitat, y = Trophic.Niche)) + 
+  geom_boxplot(outlier.shape = NA) + 
+  geom_jitter(position=position_jitter(height = 0, width = 0.35)) +
+  theme_classic() +
+  theme(plot.margin = unit(c(10,10,10,10), "pt"), legend.position = "none") +
+  xlab("\n") +
+  ylab("\nDiet categories") 
+
+rownames(df) <- df$species
+df.passerine <- df[c("Cantorchilus_leucotis", "Conirostrum_bicolor", "Conirostrum_margaritae", "Cranioleuca_vulpecula",
+                     "Dendroplex_kienerii", "Elaenia_pelzelni", "Formicarius_analis", "Formicarius_colma", "Furnarius_minor",
+                     "Hylophylax_naevia", "Hylophylax_punctulata", "Knipolegus_orenocensis", "Mazaria_propinqua",
+                     "Myrmeciza_fortis", "Myrmeciza_hyperythra", "Myrmoborus_leucophrys", "Myrmoborus_lugubris", "Myrmoborus_myotherinus",
+                     "Myrmochanes_hemileucus", "Myrmotherula_assimilis", "Myrmotherula_klagesi", "Ochthornis_littoralis",
+                     "Pheugopedius_coraya", "Pipra_erythrocephala", "Pipra_filicauda", "Saltator_coerulescens",
+                     "Saltator_grossus", "Schiffornis_major", "Schiffornis_turdina", "Serpophaga_hypoleuca",
+                     "Stigmatura_napensis", "Synallaxis_gujanensis", "Synallaxis_rutilans", "Tachyphonus_cristatus",
+                     "Tachyphonus_luctuosus", "Thamnophilus_cryptoleucus", "Xiphorhynchus_elegans", "Xiphorhynchus_obsoletus"),]
+
+hwi.passerine <- df.passerine %>%
+  mutate(habitat = fct_relevel(habitat, "island", "floodplain", "upland")) %>%
+  ggplot( aes(x = habitat, y = Hand.wing.Index)) + 
+  geom_boxplot(outlier.shape = NA) + 
+  geom_jitter(position=position_jitter(0.2)) +
+  theme_classic() +
+  theme(plot.margin = unit(c(10,10,10,10), "pt"), legend.position = "none") +
+  xlab("\n") +
+  ylab("\nHand-wing Index (passerines)") 
+
+# for reviewer
+df %>%
+  mutate(habitat = fct_relevel(habitat, "island", "floodplain", "upland")) %>%
+  ggplot( aes(x = habitat, y = STRUCTURE)) + 
+  geom_boxplot(outlier.shape = NA) + 
+  geom_jitter(position=position_jitter(height = 0, width = 0.35)) +
+  theme_classic() +
+  theme(plot.margin = unit(c(10,10,10,10), "pt"), legend.position = "none") +
+  xlab("\n") +
+  ylab("\nSTRUCTURE groups") 
+ggsave("4_plots/STRUCTURE.png")
+
+df %>%
+  mutate(habitat = fct_relevel(habitat, "island", "floodplain", "upland")) %>%
+  ggplot( aes(x = habitat, y = DAPC)) + 
+  geom_boxplot(outlier.shape = NA) + 
+  geom_jitter(position=position_jitter(height = 0, width = 0.35)) +
+  theme_classic() +
+  theme(plot.margin = unit(c(10,10,10,10), "pt"), legend.position = "none") +
+  xlab("\n") +
+  ylab("\nDAPC groups") 
+ggsave("4_plots/DAPC.png")
+
+df %>%
+  mutate(habitat = fct_relevel(habitat, "island", "floodplain", "upland")) %>%
+  ggplot( aes(x = habitat, y = BAPS)) + 
+  geom_boxplot(outlier.shape = NA) + 
+  geom_jitter(position=position_jitter(height = 0, width = 0.35)) +
+  theme_classic() +
+  theme(plot.margin = unit(c(10,10,10,10), "pt"), legend.position = "none") +
+  xlab("\n") +
+  ylab("\nBAPS groups") 
+ggsave("4_plots/BAPS.png")
+
+
+
+# plots for a few morphometric traits, not used in paper
+
+df %>%
+  mutate(habitat = fct_relevel(habitat, "island", "floodplain", "upland")) %>%
+  ggplot( aes(x = habitat, y = Kipps.BillDepth)) + 
+  geom_boxplot(outlier.shape = NA) + 
+  geom_jitter(position=position_jitter(height = 0, width = 0.35)) +
+  theme_classic() +
+  theme(plot.margin = unit(c(10,10,10,10), "pt"), legend.position = "none") +
+  xlab("\n") +
+  ylab("\nKipps.BillDepth") 
+
+df %>%
+  mutate(habitat = fct_relevel(habitat, "island", "floodplain", "upland")) %>%
+  ggplot( aes(x = habitat, y = Kipps.Distance_1)) + 
+  geom_boxplot(outlier.shape = NA) + 
+  geom_jitter(position=position_jitter(height = 0, width = 0.35)) +
+  theme_classic() +
+  theme(plot.margin = unit(c(10,10,10,10), "pt"), legend.position = "none") +
+  xlab("\n") +
+  ylab("\nKipps.Distance") 
+
+df %>%
+  mutate(habitat = fct_relevel(habitat, "island", "floodplain", "upland")) %>%
+  ggplot( aes(x = habitat, y = Beak.Depth_1)) + 
+  geom_boxplot(outlier.shape = NA) + 
+  geom_jitter(position=position_jitter(height = 0, width = 0.35)) +
+  theme_classic() +
+  theme(plot.margin = unit(c(10,10,10,10), "pt"), legend.position = "none") +
+  xlab("\n") +
+  ylab("\nBeak.Depth") 
+
+df %>%
+  mutate(habitat = fct_relevel(habitat, "island", "floodplain", "upland")) %>%
+  ggplot( aes(x = habitat, y = Beak.Width_1)) + 
+  geom_boxplot(outlier.shape = NA) + 
+  geom_jitter(position=position_jitter(height = 0, width = 0.35)) +
+  theme_classic() +
+  theme(plot.margin = unit(c(10,10,10,10), "pt"), legend.position = "none") +
+  xlab("\n") +
+  ylab("\nBeak.Width") 
+
+df %>%
+  mutate(habitat = fct_relevel(habitat, "island", "floodplain", "upland")) %>%
+  ggplot( aes(x = habitat, y = Secondary1_1)) + 
+  geom_boxplot(outlier.shape = NA) + 
+  geom_jitter(position=position_jitter(height = 0, width = 0.35)) +
+  theme_classic() +
+  theme(plot.margin = unit(c(10,10,10,10), "pt"), legend.position = "none") +
+  xlab("\n") +
+  ylab("\nSecondary1") 
+
+df %>%
+  mutate(habitat = fct_relevel(habitat, "island", "floodplain", "upland")) %>%
+  ggplot( aes(x = habitat, y = Wing.Length_1)) + 
+  geom_boxplot(outlier.shape = NA) + 
+  geom_jitter(position=position_jitter(height = 0, width = 0.35)) +
+  theme_classic() +
+  theme(plot.margin = unit(c(10,10,10,10), "pt"), legend.position = "none") +
+  xlab("\n") +
+  ylab("\nWing.Length") 
+
+df %>%
+  mutate(habitat = fct_relevel(habitat, "island", "floodplain", "upland")) %>%
+  ggplot( aes(x = habitat, y = Wing.Length.Mass)) + 
+  geom_boxplot(outlier.shape = NA) + 
+  geom_jitter(position=position_jitter(height = 0, width = 0.35)) +
+  theme_classic() +
+  theme(plot.margin = unit(c(10,10,10,10), "pt"), legend.position = "none") +
+  xlab("\n") +
+  ylab("\nWing.Length / Mass") 
+
+
+df %>%
+  mutate(habitat = fct_relevel(habitat, "island", "floodplain", "upland")) %>%
+  ggplot( aes(x = habitat, y = Wing.Length.Mass.residuals)) + 
+  geom_boxplot(outlier.shape = NA) + 
+  geom_jitter(position=position_jitter(height = 0, width = 0.35)) +
+  theme_classic() +
+  theme(plot.margin = unit(c(10,10,10,10), "pt"), legend.position = "none") +
+  xlab("\n") +
+  ylab("\nWing.Length / Mass, residuals") 
+
+df %>% dplyr::filter(species != "Leucippus_chlorocercus" & species != "Phaethornis_bourcieri" & species != "Phaethornis_hispidus") %>%
+  mutate(habitat = fct_relevel(habitat, "island", "floodplain", "upland")) %>%
+  ggplot( aes(x = habitat, y = Hand.wing.Index.Mass)) + 
+  geom_boxplot(outlier.shape = NA) + 
+  geom_jitter(position=position_jitter(height = 0, width = 0.35)) +
+  theme_classic() +
+  theme(plot.margin = unit(c(10,10,10,10), "pt"), legend.position = "none") +
+  xlab("\n") +
+  ylab("\nHand.wing.Index / Mass") 
+
+df %>% dplyr::filter(species != "Leucippus_chlorocercus" & species != "Phaethornis_bourcieri" & species != "Phaethornis_hispidus") %>%
+  mutate(habitat = fct_relevel(habitat, "island", "floodplain", "upland")) %>%
+  ggplot( aes(x = habitat, y = Hand.wing.Index.Mass.residuals)) + 
+  geom_boxplot(outlier.shape = NA) + 
+  geom_jitter(position=position_jitter(height = 0, width = 0.35)) +
+  theme_classic() +
+  theme(plot.margin = unit(c(10,10,10,10), "pt"), legend.position = "none") +
+  xlab("\n") +
+  ylab("\nHand.wing.Index / Mass, residuals") 
+
+
+
+#------------------------------------------------------------------------
+# plot as grid
+
+gt <- arrangeGrob(heterozygosity, SNPs_per_locus, Av_mtdna_tree, Fst, 
+                  Av_gene_tree, IBD, Dxy, inbreeding,
+                  SNPs_per_bp, nuc_div, seg_sites, theta.bp, 
+                  pairwise_diffs, Av_groups, Taj_D, Range.Size,
+                  nrow = 4, ncol = 4)
+
+as_ggplot(gt) +
+  draw_plot_label(label = c("A*", "B*", "C*", "D*",
+                            "E*", "F*", "G*", "H*",
+                            "I*", "J*", "K*", "L*",
+                            "M", "N", "O", "P"), 
+                  size = 15,
+                  x = c(0.001, 0.25, 0.5, 0.75,
+                        0.001, 0.25, 0.5, 0.75,
+                        0.001, 0.25, 0.5, 0.75,
+                        0.001, 0.25, 0.5, 0.75), 
+                  y = c(1,    1,    1,    1,
+                        0.75, 0.75, 0.75, 0.75,
+                        0.5, 0.5, 0.5, 0.5,
+                        0.25, 0.25, 0.25, 0.25))
+
+ggsave("4_plots/multipage_boxplot.pdf", 
+       width = 12, height = 12, units = "in")
+
+
+gt.sub <- arrangeGrob(subtending, stem, Sister_clade_richness,
+                      nrow = 1, ncol = 3)
+as_ggplot(gt.sub) +
+  draw_plot_label(label = c("A", "B", "C"), 
+                  size = 15,
+                  x = c(0.001, 0.33, 0.66), 
+                  y = c(1,  1,  1))
+ggsave("4_plots/multipage_boxplot.subtending.pdf", 
+       width = 9, height = 3, units = "in")
+
+# traits
+gt.trait <- arrangeGrob(hwi, hwi.30, hwi.passerine, 
+                        mass, Beak.Length_Nares, Trophic.Niche,
+                        nrow = 2, ncol = 3)
+as_ggplot(gt.trait) +
+  draw_plot_label(label = c("A", "B", "C",
+                            "D", "E", "F"), 
+                  size = 15,
+                  x = c(0.001, 0.33, 0.65,
+                        0.001, 0.33, 0.65), 
+                  y = c(1,     1,    1,
+                        0.5,   0.5,  0.5))
+ggsave("4_plots/multipage_boxplot.traits.png", 
+       width = 9, height = 6, units = "in")
+
+# descriptive stats
+gt.descriptive <- arrangeGrob(total_bp, av_contig_length, 
+                              loci,
+                              nrow = 2, ncol = 2)
+as_ggplot(gt.descriptive) +
+  draw_plot_label(label = c("A*", "B*",
+                            "C", ""), 
+                  size = 15,
+                  x = c(0.001, 0.5,
+                        0.001, 0.5), 
+                  y = c(1,     1,
+                        0.5,   0.5))
+ggsave("4_plots/multipage_boxplot.descriptive.png", 
+       width = 6, height = 6, units = "in")
+
+#------------------------------------------------------------------------
+# plot Fst and HWI separately for figures
 fname <- paste0("3_results/pgls.results.v4.csv")
 df.pgls <- read.csv(fname)
 rownames(df.pgls) <- df.pgls$trait
@@ -1353,7 +1536,7 @@ df %>%
   geom_abline(slope = ,
               intercept = df.pgls[3,7]) +
   geom_boxplot(outlier.shape = NA) + 
-  geom_jitter(position=position_jitter(0.2)) +
+  geom_jitter(position=position_jitter(height = 0, width = 0.35)) +
   theme_classic() +
   theme(plot.margin = unit(c(10,10,10,10), "pt"), legend.position = "none") +
   ggtitle("\n") +
@@ -1361,7 +1544,7 @@ df %>%
   ylab("\n\nFst") +
   annotate("text", x=1.2, y=0.55, label = label.Fst, size = 3.6)
 
-ggsave("3_results/1_plots/Fst.v4.pdf", 
+ggsave("4_plots/Fst.pdf", 
        width = 6,
        height = 6,
        units = c("in"))
@@ -1375,7 +1558,7 @@ df %>%
   mutate(habitat = fct_relevel(habitat, "island", "floodplain", "upland")) %>%
   ggplot( aes(x = habitat, y = log(Hand.wing.Index))) + 
   geom_boxplot(outlier.shape = NA) + 
-  geom_jitter(position=position_jitter(0.2)) +
+  geom_jitter(position=position_jitter(height = 0, width = 0.35)) +
   theme_classic() +
   theme(plot.margin = unit(c(10,10,10,10), "pt"), legend.position = "none") +
   ggtitle("\n") +
@@ -1383,13 +1566,13 @@ df %>%
   ylab("\n\nHand-wing index (log)") +
   annotate("text", x=1, y=4.4, label = label.HWI, size = 3.6)
 
-ggsave("3_results/1_plots/HWI.v4.pdf", width = 6,
+ggsave("4_plots/HWI.pdf", width = 6,
        height = 6,
        units = c("in"))
 
- #------------------------------------------------------------------------
+#------------------------------------------------------------------------
 # plot Fst and HWI separately
-# but reverse order of habitats on x axis for defense slides
+# but reverse order of habitats on x axis for presentation slides
 
 fname <- paste0("3_results/pgls.results.v3.csv")
 df.pgls <- read.csv(fname)
@@ -1404,7 +1587,7 @@ df %>%
   geom_abline(slope = ,
               intercept = df.pgls[3,7]) +
   geom_boxplot(outlier.shape = NA) + 
-  geom_jitter(position=position_jitter(0.2)) +
+  geom_jitter(position=position_jitter(height = 0.1, width = 0.35)) +
   theme_classic() +
   theme(plot.margin = unit(c(10,10,10,10), "pt"), legend.position = "none") +
   ggtitle("\n") +
@@ -1412,7 +1595,7 @@ df %>%
   ylab("\n\nFst") +
   annotate("text", x=3, y=0.55, label = label.Fst, size = 3.6)
 
-  ggsave("3_results/1_plots/Fst.for_talk.v1.pdf")
+  ggsave("4_plots/Fst.for_talk.v1.pdf")
   
 
 label.HWI <- paste0("PGLS\np = ", prettyNum(df.pgls[19,3], digits = 2),
@@ -1423,7 +1606,7 @@ df %>%
   mutate(habitat = fct_relevel(habitat, "upland", "floodplain", "island")) %>%
   ggplot( aes(x = habitat, y = log(Hand.wing.Index))) + 
   geom_boxplot(outlier.shape = NA) + 
-  geom_jitter(position=position_jitter(0.2)) +
+  geom_jitter(position=position_jitter(height = 0.1, width = 0.35)) +
   scale_y_continuous(limits=c(1.8, 4.6), 
                      breaks = c(2.0, 2.5, 3.0, 3.5, 4.0, 4.5)) +
   theme_classic() +
@@ -1433,13 +1616,13 @@ df %>%
   ylab("\n\nHand-wing index (log)") +
   annotate("text", x=3, y=4.5, label = label.HWI, size = 3.6) 
 
-  ggsave("3_results/1_plots/HWI.for_talk.v1.pdf")
+  ggsave("4_plots/HWI.for_talk.v1.pdf")
 
 
 #------------------------------------------------------------------------
 # pgls
 # HWI vs genetic traits
-
+# just an idea
 
 df.o <- df
 
