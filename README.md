@@ -4,6 +4,8 @@ Configuration files and code used in assembling UCE data for comparative river i
 
 Remaining files are for data manipulation and PGLS / ANOVA analyses
 
+Zenodo archive: [![DOI](https://zenodo.org/badge/135321103.svg)](https://zenodo.org/badge/latestdoi/135321103)
+
 -----------------
 
 Folders:
