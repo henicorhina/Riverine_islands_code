@@ -40,4 +40,8 @@ Scripts:
 
 `pgls_caper.R`: run PGLS analysis in R package caper (old)
 
-`phylANOVA.v4.R`: format input data and run phylogenetic ANOVA and PGLS analyses. Most analyses and plotting are included in this file.
+`phylANOVA.R`: format input data and run phylogenetic ANOVA and PGLS analyses. Most analyses and plotting are included in this file.
+
+`sensitivity_analysis.R`: process some heterozygosity data in sensitivity analysis
+
+`heterozygosity_per_pop.R`: calculate heterozygosity for each population from DAPC
